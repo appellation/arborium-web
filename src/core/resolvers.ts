@@ -25,6 +25,14 @@ export function resolveHost(): ResolvedWasmModule {
   };
 }
 
+export function resolveRuntimeCore(): string {
+  return fileURLToPath(new URL("../runtime/index.js", import.meta.url));
+}
+
+export function resolveArborium(): string {
+  return fileURLToPath(import.meta.resolve("@arborium/arborium"));
+}
+
 /**
  * Resolve grammar WASM assets from the consuming project's node_modules.
  *
