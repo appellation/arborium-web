@@ -1,4 +1,5 @@
 import { createUnplugin } from "unplugin";
+import { availableLanguages } from "@arborium/arborium";
 import type { ArboriumPluginOptions } from "./types.js";
 import { fromNodeModules, resolveHost } from "./core/resolvers.js";
 import { generateRuntimeModule } from "./core/codegen.js";
@@ -9,6 +10,7 @@ const RESOLVED_VIRTUAL_ID = "\0arborium:runtime";
 
 export const unpluginFactory = (options: ArboriumPluginOptions) => {
   const grammarResolver = options.resolve ?? fromNodeModules();
+  const languages = options.languages ?? availableLanguages;
   let generatedCode: string | null = null;
 
   return {
@@ -17,7 +19,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions) => {
 
     async buildStart() {
       const host = resolveHost();
-      const resolved = await grammarResolver({ languages: options.languages });
+      const resolved = await grammarResolver({ languages });
       generatedCode = generateRuntimeModule(host, resolved);
     },
 

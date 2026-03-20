@@ -26,9 +26,7 @@ import arborium from "unplugin-arborium/vite";
 
 export default {
   plugins: [
-    arborium({
-      languages: ["json", "rust"],
-    }),
+    arborium(),
   ],
 };
 ```
@@ -41,9 +39,7 @@ const arborium = require("unplugin-arborium/webpack");
 
 module.exports = {
   plugins: [
-    arborium({
-      languages: ["json", "rust"],
-    }),
+    arborium(),
   ],
 };
 ```
@@ -56,9 +52,7 @@ import arborium from "unplugin-arborium/rollup";
 
 export default {
   plugins: [
-    arborium({
-      languages: ["json", "rust"],
-    }),
+    arborium(),
   ],
 };
 ```
@@ -71,9 +65,7 @@ import { build } from "esbuild";
 
 build({
   plugins: [
-    arborium({
-      languages: ["json", "rust"],
-    }),
+    arborium(),
   ],
 });
 ```
@@ -87,9 +79,7 @@ const arborium = require("unplugin-arborium/next");
 module.exports = {
   webpack(config) {
     config.plugins.push(
-      arborium({
-        languages: ["json", "rust"],
-      })
+      arborium()
     );
     return config;
   },
@@ -110,7 +100,7 @@ const html = await highlight("json", '{"hello": "world"}');
 const grammar = await loadGrammar("rust");
 
 // Inspect bundled languages
-const langs = getAvailableLanguages(); // ["json", "rust"]
+const langs = getAvailableLanguages(); // ["ada", "agda", "awk", ...]
 const hasRust = isLanguageAvailable("rust"); // true
 ```
 
@@ -128,7 +118,7 @@ Add the client type declarations to your `tsconfig.json` so TypeScript recognize
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `languages` | `string[]` | required | Language identifiers to bundle. When using the default resolver, each must have a corresponding `@arborium/<language>` package installed. When using `fromNpm()`, no prior installation is needed. |
+| `languages` | `string[]` | all available | Language identifiers to bundle. Defaults to all languages published under the `@arborium` scope. When using the default resolver, each must have a corresponding `@arborium/<language>` package installed. When using `fromNpm()`, no prior installation is needed. |
 | `resolve` | `GrammarResolver` | `fromNodeModules()` | Custom resolver for grammar packages |
 
 ## Grammar Resolvers
@@ -158,7 +148,6 @@ import { fromNpm } from "unplugin-arborium/resolvers";
 export default {
   plugins: [
     arborium({
-      languages: ["json", "rust"],
       resolve: fromNpm(),
     }),
   ],
@@ -199,7 +188,6 @@ Then pass it to the plugin:
 
 ```ts
 arborium({
-  languages: ["json", "rust"],
   resolve: myResolver,
 })
 ```

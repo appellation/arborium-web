@@ -29,8 +29,8 @@ export type GrammarResolver = (
 
 /** Plugin configuration options */
 export interface ArboriumPluginOptions {
-  /** Which languages to bundle. */
-  languages: string[];
+  /** Which languages to bundle. Defaults to all available languages. */
+  languages?: string[];
   /** How to resolve grammar WASM assets. Default: fromNodeModules() */
   resolve?: GrammarResolver;
 }
