@@ -1,7 +1,12 @@
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
+import { promises as fsp } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { gunzip } from "node:zlib";
+import { promisify } from "node:util";
 import type { GrammarResolver, ResolvedWasmModule } from "../types.js";
+
+const gunzipAsync = promisify(gunzip);
 
 /**
  * Resolve the arborium host module from our own dependency.
@@ -42,4 +47,144 @@ export function fromNodeModules(): GrammarResolver {
 
     return { grammars };
   };
+}
+
+/**
+ * Resolve grammar WASM assets by fetching packages from the NPM registry at
+ * build time. Packages are downloaded and cached in
+ * `node_modules/.cache/unplugin-arborium/` — the consuming project does not
+ * need to list `@arborium/<lang>` in its dependencies.
+ */
+export function fromNpm(options?: {
+  registry?: string;
+  cacheDir?: string;
+}): GrammarResolver {
+  const registry = options?.registry ?? "https://registry.npmjs.org";
+
+  return async (ctx) => {
+    const cacheDir =
+      options?.cacheDir ??
+      resolve(process.cwd(), "node_modules/.cache/unplugin-arborium");
+    const grammars = new Map<string, ResolvedWasmModule>();
+
+    await Promise.all(
+      ctx.languages.map(async (lang) => {
+        const resolved = await fetchGrammarPackage(
+          `@arborium/${lang}`,
+          cacheDir,
+          registry,
+        );
+        grammars.set(lang, resolved);
+      }),
+    );
+
+    return { grammars };
+  };
+}
+
+async function fetchGrammarPackage(
+  pkg: string,
+  cacheDir: string,
+  registry: string,
+): Promise<ResolvedWasmModule> {
+  // Cache at: node_modules/.cache/unplugin-arborium/@arborium/json/<version>/
+  // path.resolve treats "@arborium/json" as a relative path → creates the
+  // nested directory structure, which also satisfies the transformInclude regex.
+  const pkgCacheDir = resolve(cacheDir, pkg);
+
+  // If any version is already cached, use it — avoids a network round-trip on
+  // every build. To pull a newer version, delete the cache directory.
+  for await (const jsPath of fsp.glob("*/grammar.js", { cwd: pkgCacheDir })) {
+    const versionDir = resolve(pkgCacheDir, dirname(jsPath));
+    const wasmPath = resolve(versionDir, "grammar_bg.wasm");
+    const wasmExists = await fsp.access(wasmPath).then(() => true, () => false);
+    if (wasmExists) {
+      return { js: resolve(versionDir, "grammar.js"), wasm: wasmPath };
+    }
+  }
+
+  // No cache hit — fetch the latest version metadata from the registry.
+  // Encode scoped package name: "@arborium/json" → "%40arborium%2Fjson"
+  const encodedPkg = pkg.replace(/^@/, "%40").replace("/", "%2F");
+
+  const metaRes = await fetch(`${registry}/${encodedPkg}/latest`);
+  if (!metaRes.ok) {
+    throw new Error(
+      `unplugin-arborium: failed to fetch metadata for ${pkg} from ${registry} (${metaRes.status} ${metaRes.statusText})`,
+    );
+  }
+
+  const meta = (await metaRes.json()) as {
+    version: string;
+    dist: { tarball: string };
+  };
+  const { version, dist } = meta;
+
+  const versionDir = resolve(pkgCacheDir, version);
+  const jsPath = resolve(versionDir, "grammar.js");
+  const wasmPath = resolve(versionDir, "grammar_bg.wasm");
+
+  const tarRes = await fetch(dist.tarball);
+  if (!tarRes.ok) {
+    throw new Error(
+      `unplugin-arborium: failed to download tarball for ${pkg}@${version}`,
+    );
+  }
+
+  const compressed = Buffer.from(await tarRes.arrayBuffer());
+  const decompressed = await gunzipAsync(compressed);
+  const files = extractTarEntries(decompressed, new Set(["grammar.js", "grammar_bg.wasm"]));
+
+  const jsContent = files.get("grammar.js");
+  const wasmContent = files.get("grammar_bg.wasm");
+  if (!jsContent || !wasmContent) {
+    throw new Error(
+      `unplugin-arborium: could not find grammar.js or grammar_bg.wasm in ${pkg}@${version}`,
+    );
+  }
+
+  await fsp.mkdir(versionDir, { recursive: true });
+  await fsp.writeFile(jsPath, jsContent);
+  await fsp.writeFile(wasmPath, wasmContent);
+
+  return { js: jsPath, wasm: wasmPath };
+}
+
+/**
+ * Extract named files from an uncompressed tar buffer.
+ * Matches by basename, returning file contents keyed by name.
+ */
+function extractTarEntries(
+  buffer: Buffer,
+  names: Set<string>,
+): Map<string, Buffer> {
+  const results = new Map<string, Buffer>();
+  let offset = 0;
+
+  while (offset + 512 <= buffer.length) {
+    const header = buffer.subarray(offset, offset + 512);
+    if (header.every((b) => b === 0)) break;
+
+    const name = header.subarray(0, 100).toString("utf8").replace(/\0.*/, "");
+    const sizeStr = header
+      .subarray(124, 136)
+      .toString("utf8")
+      .replace(/\0.*/, "")
+      .trim();
+    const size = parseInt(sizeStr, 8) || 0;
+
+    offset += 512;
+
+    if (size > 0) {
+      const basename = name.split("/").pop()!;
+      if (names.has(basename)) {
+        results.set(basename, Buffer.from(buffer.subarray(offset, offset + size)));
+        if (results.size === names.size) break;
+      }
+    }
+
+    offset += Math.ceil(size / 512) * 512;
+  }
+
+  return results;
 }

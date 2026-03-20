@@ -105,7 +105,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions) => {
 export const unplugin = /* #__PURE__ */ createUnplugin(unpluginFactory);
 export default unplugin;
 
-export { fromNodeModules } from "./core/resolvers.js";
+export { fromNodeModules, fromNpm } from "./core/resolvers.js";
 export type {
   ArboriumPluginOptions,
   GrammarResolver,
