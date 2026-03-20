@@ -1,0 +1,16 @@
+{
+  "name": "arborium-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build"
+  },
+  "dependencies": {
+    "@arborium/json": "^2.16.0"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^1.3.0",
+    "unplugin-arborium": "workspace:*"
+  }
+}
