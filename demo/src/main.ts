@@ -1,6 +1,6 @@
 import { highlight, getAvailableLanguages } from "arborium";
-import "@arborium/arborium/themes/base.css";
-import "@arborium/arborium/themes/one-dark.css";
+import "arborium/themes/base.css";
+import "arborium/themes/one-dark.css";
 
 const sampleJson = JSON.stringify(
   {

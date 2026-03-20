@@ -5,16 +5,13 @@ declare module "arborium" {
     getAvailableLanguages,
     isLanguageAvailable,
   } from "unplugin-arborium/runtime-core";
-  export type {
-    Grammar,
-    Session,
-    Span,
-    Injection,
-    ParseResult,
-    Utf16Span,
-    Utf16Injection,
-    Utf16ParseResult,
-  } from "unplugin-arborium/types";
+  export {
+    detectLanguage,
+    extractLanguageFromClass,
+    normalizeLanguage,
+    availableLanguages,
+    pluginVersion,
+  } from "@arborium/arborium";
 }
 
 declare module "arborium/runtime" {
@@ -24,14 +21,6 @@ declare module "arborium/runtime" {
     getAvailableLanguages,
     isLanguageAvailable,
   } from "unplugin-arborium/runtime-core";
-  export type {
-    Grammar,
-    Session,
-    Span,
-    Injection,
-    ParseResult,
-    Utf16Span,
-    Utf16Injection,
-    Utf16ParseResult,
-  } from "unplugin-arborium/types";
 }
+
+declare module "arborium/themes/*.css" {}

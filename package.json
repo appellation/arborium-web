@@ -60,10 +60,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@arborium/arborium": "^2.16.0",
     "unplugin": "^2.3.0"
-  },
-  "peerDependencies": {
-    "@arborium/arborium": "^2.16.0"
   },
   "devDependencies": {
     "@arborium/json": "^2.16.0",
