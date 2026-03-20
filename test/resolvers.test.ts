@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
+import { pluginVersion } from "@arborium/arborium";
 import { fromNodeModules, fromNpm } from "../dist/core/resolvers.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -95,12 +96,12 @@ describe("fromNpm", () => {
     fs.rmSync(cacheDir, { recursive: true, force: true });
   });
 
-  function mockFetch(tarball: Buffer, version = "1.0.0") {
+  function mockFetch(tarball: Buffer) {
     globalThis.fetch = async (input: RequestInfo | URL) => {
       const url = input.toString();
-      if (url.includes("/latest")) {
+      if (url.includes("registry.npmjs.org")) {
         return new Response(
-          JSON.stringify({ version, dist: { tarball: "http://fake/pkg.tgz" } }),
+          JSON.stringify({ dist: { tarball: "http://fake/pkg.tgz" } }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
@@ -177,6 +178,73 @@ describe("fromNpm", () => {
     await expect(resolver({ languages: ["json"] })).rejects.toThrow(
       "grammar_bg.wasm",
     );
+  });
+
+  it("requests the pinned pluginVersion from the registry", async () => {
+    const tarball = buildTarGz({ "grammar.js": FAKE_JS, "grammar_bg.wasm": FAKE_WASM });
+    const requestedUrls: string[] = [];
+
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      requestedUrls.push(url);
+      if (url.includes("registry.npmjs.org")) {
+        return new Response(
+          JSON.stringify({ dist: { tarball: "http://fake/pkg.tgz" } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.endsWith(".tgz")) {
+        return new Response(new Uint8Array(tarball), { status: 200 });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    const resolver = fromNpm({ cacheDir });
+    await resolver({ languages: ["json"] });
+
+    const metaUrl = requestedUrls.find((u) => u.includes("registry.npmjs.org"))!;
+    expect(metaUrl).toContain(pluginVersion);
+    expect(metaUrl).not.toContain("latest");
+  });
+
+  it("cache is keyed by version — different versions do not share cache entries", async () => {
+    const tarball = buildTarGz({ "grammar.js": FAKE_JS, "grammar_bg.wasm": FAKE_WASM });
+    let fetchCount = 0;
+
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      fetchCount++;
+      const url = input.toString();
+      if (url.includes("registry.npmjs.org")) {
+        return new Response(
+          JSON.stringify({ dist: { tarball: "http://fake/pkg.tgz" } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.endsWith(".tgz")) {
+        return new Response(new Uint8Array(tarball), { status: 200 });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    // First resolver populates the cache for pluginVersion
+    const resolver = fromNpm({ cacheDir });
+    await resolver({ languages: ["json"] });
+    const fetchesAfterFirst = fetchCount;
+
+    // Manually plant a different-version cache entry to simulate a stale cache
+    const staleVersionDir = path.join(
+      cacheDir,
+      "@arborium",
+      "json",
+      "0.0.0-stale",
+    );
+    fs.mkdirSync(staleVersionDir, { recursive: true });
+    fs.writeFileSync(path.join(staleVersionDir, "grammar.js"), FAKE_JS);
+    fs.writeFileSync(path.join(staleVersionDir, "grammar_bg.wasm"), FAKE_WASM);
+
+    // Second call should still hit the pluginVersion cache, not the stale entry
+    await resolver({ languages: ["json"] });
+    expect(fetchCount).toBe(fetchesAfterFirst); // no additional fetches
   });
 
   it("resolves multiple languages in parallel", async () => {

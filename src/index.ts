@@ -3,6 +3,7 @@ import { availableLanguages } from "@arborium/arborium";
 import type { ArboriumPluginOptions } from "./types.js";
 import { fromNodeModules, resolveHost } from "./core/resolvers.js";
 import { generateRuntimeModule } from "./core/codegen.js";
+import { checkLicenses } from "./core/licenses.js";
 
 const VIRTUAL_RUNTIME_ID = "arborium";
 const VIRTUAL_RUNTIME_ALT = "arborium/runtime";
@@ -18,6 +19,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions) => {
     enforce: "pre" as const,
 
     async buildStart() {
+      await checkLicenses(languages, options.allowedLicenses);
       const host = resolveHost();
       const resolved = await grammarResolver({ languages });
       generatedCode = generateRuntimeModule(host, resolved);

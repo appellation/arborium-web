@@ -120,6 +120,7 @@ Add the client type declarations to your `tsconfig.json` so TypeScript recognize
 |---|---|---|---|
 | `languages` | `string[]` | all available | Language identifiers to bundle. Defaults to all languages published under the `@arborium` scope. When using the default resolver, each must have a corresponding `@arborium/<language>` package installed. When using `fromNpm()`, no prior installation is needed. |
 | `resolve` | `GrammarResolver` | `fromNodeModules()` | Custom resolver for grammar packages |
+| `allowedLicenses` | `string[]` | `undefined` | SPDX license identifiers permitted for bundled grammars. The license is resolved from the underlying tree-sitter grammar's `arborium.yaml` in the [bearcove/arborium](https://github.com/bearcove/arborium) repository. If any language's license is not in this set, the build fails. |
 
 ## Grammar Resolvers
 
