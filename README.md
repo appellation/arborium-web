@@ -7,13 +7,13 @@ Supports Vite, Webpack, Rollup, Rspack, esbuild, and Next.js via [unplugin](http
 ## Installation
 
 ```sh
-npm install unplugin-arborium @arborium/arborium
+npm install -D unplugin-arborium
 ```
 
 Grammar packages are optional — see [Grammar Resolvers](#grammar-resolvers) for details. If you use the default resolver, install `@arborium/<language>` packages for each language you want to bundle:
 
 ```sh
-npm install @arborium/json @arborium/rust
+npm install -D @arborium/json @arborium/rust
 ```
 
 ## Usage

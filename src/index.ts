@@ -33,7 +33,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
       generatedCode = generateRuntimeModule(host, resolved);
     },
 
-    resolveId(id: string) {
+    resolveId(id: string, importer: string | undefined) {
       if (id === VIRTUAL_RUNTIME_ID || id === VIRTUAL_RUNTIME_ALT) {
         return RESOLVED_VIRTUAL_ID;
       }
@@ -42,6 +42,11 @@ export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
         return fileURLToPath(
           import.meta.resolve(`@arborium/arborium/themes/${theme}`),
         );
+      }
+      // Resolve all imports originating from the virtual module to absolute
+      // paths so consumers don't need any of these packages installed.
+      if (importer === RESOLVED_VIRTUAL_ID) {
+        return fileURLToPath(import.meta.resolve(id));
       }
       return null;
     },
