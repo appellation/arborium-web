@@ -8,7 +8,7 @@ const VIRTUAL_RUNTIME_ID = "arborium";
 const VIRTUAL_RUNTIME_ALT = "arborium/runtime";
 const RESOLVED_VIRTUAL_ID = "\0arborium:runtime";
 
-export const unpluginFactory = (options: ArboriumPluginOptions) => {
+export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
   const grammarResolver = options.resolve ?? fromNodeModules();
   let generatedCode: string | null = null;
 

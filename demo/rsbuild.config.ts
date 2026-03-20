@@ -5,9 +5,7 @@ export default defineConfig({
   tools: {
     rspack: {
       plugins: [
-        arborium({
-          languages: ["json"],
-        }),
+        arborium(),
       ],
     },
   },
