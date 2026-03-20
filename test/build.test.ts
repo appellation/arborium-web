@@ -2,16 +2,14 @@ import { describe, it, expect } from "@rstest/core";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { unplugin } from "../dist/index.js";
-import type { ArboriumPluginOptions } from "../dist/index.d.ts";
+import { unplugin, fromNodeModules } from "../dist/index.js";
+import type { ArboriumPluginOptions, GrammarResolver } from "../dist/index.d.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixtureEntry = path.resolve(__dirname, "fixtures/entry.js");
 const outDir = path.resolve(__dirname, ".out");
 
-const pluginOptions: ArboriumPluginOptions = {
-  languages: ["json"],
-};
+const pluginOptions: ArboriumPluginOptions = {};
 
 function cleanOutDir() {
   fs.rmSync(outDir, { recursive: true, force: true });
@@ -188,6 +186,30 @@ describe("unplugin-arborium", () => {
 
       cleanOutDir();
     });
+  });
+});
+
+// ============================================================================
+// Language resolution in buildStart
+// ============================================================================
+
+describe("language resolution", () => {
+  it("emits a warning and returns early when discoverLanguages returns an empty array", async () => {
+    const resolver = fromNodeModules();
+    resolver.discoverLanguages = async () => [];
+    const vitePlugin = unplugin.vite({ resolve: resolver });
+
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (msg: string) => warnings.push(msg);
+    try {
+      await (vitePlugin as any).buildStart?.();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("no languages found");
   });
 });
 

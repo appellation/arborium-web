@@ -4,7 +4,7 @@ import { promises as fsp } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { gunzip } from "node:zlib";
 import { promisify } from "node:util";
-import { pluginVersion } from "@arborium/arborium";
+import { pluginVersion, availableLanguages } from "@arborium/arborium";
 import type { GrammarResolver, ResolvedWasmModule } from "../types.js";
 
 const gunzipAsync = promisify(gunzip);
@@ -32,7 +32,7 @@ export function resolveHost(): ResolvedWasmModule {
  * in the consuming project.
  */
 export function fromNodeModules(): GrammarResolver {
-  return (ctx) => {
+  const resolver: GrammarResolver = (ctx) => {
     // Anchor resolution to the consumer's project directory
     const require = createRequire(resolve(process.cwd(), "package.json"));
 
@@ -48,6 +48,20 @@ export function fromNodeModules(): GrammarResolver {
 
     return { grammars };
   };
+
+  resolver.discoverLanguages = async (): Promise<string[]> => {
+    const arboriumDir = resolve(process.cwd(), "node_modules/@arborium");
+    try {
+      const dirents = await fsp.readdir(arboriumDir, { withFileTypes: true });
+      return dirents
+        .filter((d) => (d.isDirectory() || d.isSymbolicLink()) && d.name !== "arborium")
+        .map((d) => d.name);
+    } catch {
+      return [];
+    }
+  };
+
+  return resolver;
 }
 
 /**
@@ -62,7 +76,7 @@ export function fromNpm(options?: {
 }): GrammarResolver {
   const registry = options?.registry ?? "https://registry.npmjs.org";
 
-  return async (ctx) => {
+  const resolver: GrammarResolver = async (ctx) => {
     const cacheDir =
       options?.cacheDir ??
       resolve(process.cwd(), "node_modules/.cache/unplugin-arborium");
@@ -82,6 +96,10 @@ export function fromNpm(options?: {
 
     return { grammars };
   };
+
+  resolver.discoverLanguages = (): string[] => availableLanguages;
+
+  return resolver;
 }
 
 async function fetchGrammarPackage(

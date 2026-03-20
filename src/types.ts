@@ -22,15 +22,19 @@ export interface ResolvedGrammars {
  * Callback that resolves WASM assets for each grammar.
  * Called once at build time. Must return absolute file paths.
  * The host module is resolved automatically from @arborium/arborium.
+ *
+ * Built-in resolvers (fromNodeModules, fromNpm) attach a `discoverLanguages`
+ * method that the plugin calls when `languages` is omitted from plugin options.
+ * Custom resolver functions may optionally attach this method too; without it,
+ * an explicit `languages` array is required.
  */
-export type GrammarResolver = (
-  ctx: ResolveContext,
-) => ResolvedGrammars | Promise<ResolvedGrammars>;
+export type GrammarResolver = {
+  (ctx: ResolveContext): ResolvedGrammars | Promise<ResolvedGrammars>;
+  discoverLanguages(): string[] | Promise<string[]>;
+};
 
 /** Plugin configuration options */
 export interface ArboriumPluginOptions {
-  /** Which languages to bundle. Defaults to all available languages. */
-  languages?: string[];
   /** How to resolve grammar WASM assets. Default: fromNodeModules() */
   resolve?: GrammarResolver;
   /**

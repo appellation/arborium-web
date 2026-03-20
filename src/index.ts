@@ -1,5 +1,4 @@
 import { createUnplugin } from "unplugin";
-import { availableLanguages } from "@arborium/arborium";
 import type { ArboriumPluginOptions } from "./types.js";
 import { fromNodeModules, resolveHost } from "./core/resolvers.js";
 import { generateRuntimeModule } from "./core/codegen.js";
@@ -11,7 +10,6 @@ const RESOLVED_VIRTUAL_ID = "\0arborium:runtime";
 
 export const unpluginFactory = (options: ArboriumPluginOptions) => {
   const grammarResolver = options.resolve ?? fromNodeModules();
-  const languages = options.languages ?? availableLanguages;
   let generatedCode: string | null = null;
 
   return {
@@ -19,6 +17,14 @@ export const unpluginFactory = (options: ArboriumPluginOptions) => {
     enforce: "pre" as const,
 
     async buildStart() {
+      const languages = await grammarResolver.discoverLanguages();
+      if (languages.length === 0) {
+        console.warn(
+          "unplugin-arborium: no languages found. Install @arborium/<lang> packages or use fromNpm().",
+        );
+        return;
+      }
+
       await checkLicenses(languages, options.allowedLicenses);
       const host = resolveHost();
       const resolved = await grammarResolver({ languages });

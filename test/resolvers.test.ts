@@ -34,6 +34,20 @@ describe("fromNodeModules", () => {
       resolver({ languages: ["not-a-real-language"] }),
     ).toThrow();
   });
+
+  it("exposes discoverLanguages", () => {
+    const resolver = fromNodeModules();
+    expect(typeof resolver.discoverLanguages).toBe("function");
+  });
+
+  it("discoverLanguages returns installed @arborium/* packages and excludes the host", async () => {
+    const resolver = fromNodeModules();
+    const langs = await resolver.discoverLanguages!();
+    // The test project has @arborium/json installed
+    expect(langs).toContain("json");
+    // The host package must not be treated as a grammar language
+    expect(langs).not.toContain("arborium");
+  });
 });
 
 // ============================================================================
@@ -257,5 +271,21 @@ describe("fromNpm", () => {
     expect(result.grammars.size).toBe(2);
     expect(result.grammars.has("json")).toBe(true);
     expect(result.grammars.has("toml")).toBe(true);
+  });
+
+  it("exposes discoverLanguages", () => {
+    const resolver = fromNpm({ cacheDir });
+    expect(typeof resolver.discoverLanguages).toBe("function");
+  });
+
+  it("discoverLanguages returns the full availableLanguages list", () => {
+    const resolver = fromNpm({ cacheDir });
+    const langs = resolver.discoverLanguages!() as string[];
+    expect(Array.isArray(langs)).toBe(true);
+    expect(langs.length).toBeGreaterThan(0);
+    // Spot-check a few well-known languages
+    expect(langs).toContain("json");
+    expect(langs).toContain("rust");
+    expect(langs).toContain("typescript");
   });
 });

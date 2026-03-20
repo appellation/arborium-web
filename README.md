@@ -100,7 +100,7 @@ const html = await highlight("json", '{"hello": "world"}');
 const grammar = await loadGrammar("rust");
 
 // Inspect bundled languages
-const langs = getAvailableLanguages(); // ["ada", "agda", "awk", ...]
+const langs = getAvailableLanguages(); // ["json", "rust"]
 const hasRust = isLanguageAvailable("rust"); // true
 ```
 
@@ -118,29 +118,28 @@ Add the client type declarations to your `tsconfig.json` so TypeScript recognize
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `languages` | `string[]` | all available | Language identifiers to bundle. Defaults to all languages published under the `@arborium` scope. When using the default resolver, each must have a corresponding `@arborium/<language>` package installed. When using `fromNpm()`, no prior installation is needed. |
-| `resolve` | `GrammarResolver` | `fromNodeModules()` | Custom resolver for grammar packages |
-| `allowedLicenses` | `string[]` | `undefined` | SPDX license identifiers permitted for bundled grammars. The license is resolved from the underlying tree-sitter grammar's `arborium.yaml` in the [bearcove/arborium](https://github.com/bearcove/arborium) repository. If any language's license is not in this set, the build fails. |
+| `resolve` | `GrammarResolver` | `fromNodeModules()` | Resolver for grammar packages. `discoverLanguages` determines which languages to bundle. |
+| `allowedLicenses` | `string[]` | `undefined` | SPDX license identifiers permitted for bundled grammars. The license is resolved from the underlying tree-sitter grammar's `arborium.yaml` in the [bearcove/arborium](https://github.com/bearcove/arborium) repository. If any language's license is not in this set, the build fails. `undefined` (the default) allows all licenses; an empty array disallows all licenses. |
 
 ## Grammar Resolvers
 
-Grammar packages do not need to be installed as project dependencies. The resolver you choose determines how packages are located at build time.
+The resolver determines how grammar WASM assets are located at build time. Each built-in resolver also provides a default language list when `languages` is omitted.
 
 ### `fromNodeModules()` (default)
 
-Resolves grammars from your project's `node_modules`. You must install each grammar package explicitly:
+Resolves grammars from your project's `node_modules`. Install the grammar packages you want:
 
 ```sh
 npm install @arborium/json @arborium/rust
 ```
 
-This is the default — no resolver configuration is required.
+The plugin scans `node_modules/@arborium/` at build time and bundles every installed grammar package automatically.
 
 ### `fromNpm()`
 
 Fetches grammar packages directly from the NPM registry at build time, with no installation step required. Packages are downloaded once and cached in `node_modules/.cache/unplugin-arborium/`, so subsequent builds are fast even without the packages in `node_modules`.
 
-This is useful when you want to keep grammars out of your `package.json` dependencies, use many languages without cluttering your lockfile, or dynamically configure which languages to bundle (e.g. from an environment variable or config file) without managing installs separately.
+All available languages are bundled by default. This is useful when you want to keep grammars out of your `package.json` dependencies or support every language without managing installs.
 
 ```ts
 import arborium from "unplugin-arborium/vite";
@@ -148,9 +147,7 @@ import { fromNpm } from "unplugin-arborium/resolvers";
 
 export default {
   plugins: [
-    arborium({
-      resolve: fromNpm(),
-    }),
+    arborium({ resolve: fromNpm() }),
   ],
 };
 ```
@@ -185,12 +182,12 @@ const myResolver: GrammarResolver = (ctx) => {
 };
 ```
 
-Then pass it to the plugin:
+Custom resolvers must implement `discoverLanguages` so the plugin knows which languages to bundle:
 
 ```ts
-arborium({
-  resolve: myResolver,
-})
+myResolver.discoverLanguages = () => ["json", "rust"];
+
+arborium({ resolve: myResolver })
 ```
 
 **Types:**
@@ -212,7 +209,10 @@ interface ResolvedGrammars {
   grammars: Map<string, ResolvedWasmModule>;
 }
 
-type GrammarResolver = (ctx: ResolveContext) => ResolvedGrammars | Promise<ResolvedGrammars>;
+type GrammarResolver = {
+  (ctx: ResolveContext): ResolvedGrammars | Promise<ResolvedGrammars>;
+  discoverLanguages(): string[] | Promise<string[]>;
+};
 ```
 
 Resolvers can be async, so you can fetch, extract, or generate files before returning. All paths must be absolute. The host WASM module (`@arborium/arborium`) is always resolved from the plugin's own dependencies and does not need to be handled by the resolver.
