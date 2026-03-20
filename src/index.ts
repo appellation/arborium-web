@@ -109,29 +109,6 @@ export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
         };
       },
     },
-
-    // Webpack and rspack need an explicit rule to treat .wasm files
-    // referenced via new URL() as static assets rather than JS modules.
-    // Vite/Rollup handle this natively. esbuild needs a loader mapping.
-    rspack(compiler: any) {
-      compiler.options.module.rules.push({
-        test: /\.wasm$/,
-        type: "asset/resource",
-      });
-    },
-
-    webpack(compiler: any) {
-      compiler.options.module.rules.push({
-        test: /\.wasm$/,
-        type: "asset/resource",
-      });
-    },
-
-    esbuild: {
-      config(options: any) {
-        options.loader = { ...options.loader, ".wasm": "file" };
-      },
-    },
   };
 };
 
