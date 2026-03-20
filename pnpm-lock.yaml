@@ -51,6 +51,9 @@ importers:
 
   demo:
     dependencies:
+      '@arborium/arborium':
+        specifier: ^2.16.0
+        version: 2.16.0
       '@arborium/json':
         specifier: ^2.16.0
         version: 2.16.0

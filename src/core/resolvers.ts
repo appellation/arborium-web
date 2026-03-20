@@ -4,6 +4,7 @@ import { promises as fsp } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { gunzip } from "node:zlib";
 import { promisify } from "node:util";
+import { pluginVersion } from "@arborium/arborium";
 import type { GrammarResolver, ResolvedWasmModule } from "../types.js";
 
 const gunzipAsync = promisify(gunzip);
@@ -71,6 +72,7 @@ export function fromNpm(options?: {
       ctx.languages.map(async (lang) => {
         const resolved = await fetchGrammarPackage(
           `@arborium/${lang}`,
+          pluginVersion,
           cacheDir,
           registry,
         );
@@ -84,6 +86,7 @@ export function fromNpm(options?: {
 
 async function fetchGrammarPackage(
   pkg: string,
+  version: string,
   cacheDir: string,
   registry: string,
 ): Promise<ResolvedWasmModule> {
@@ -91,26 +94,27 @@ async function fetchGrammarPackage(
   // path.resolve treats "@arborium/json" as a relative path → creates the
   // nested directory structure, which also satisfies the transformInclude regex.
   const pkgCacheDir = resolve(cacheDir, pkg);
+  const versionDir = resolve(pkgCacheDir, version);
+  const jsPath = resolve(versionDir, "grammar.js");
+  const wasmPath = resolve(versionDir, "grammar_bg.wasm");
 
-  // If any version is already cached, use it — avoids a network round-trip on
-  // every build. To pull a newer version, delete the cache directory.
-  for await (const jsPath of fsp.glob("*/grammar.js", { cwd: pkgCacheDir })) {
-    const versionDir = resolve(pkgCacheDir, dirname(jsPath));
-    const wasmPath = resolve(versionDir, "grammar_bg.wasm");
-    const wasmExists = await fsp.access(wasmPath).then(() => true, () => false);
-    if (wasmExists) {
-      return { js: resolve(versionDir, "grammar.js"), wasm: wasmPath };
-    }
+  // If this exact version is already cached, use it.
+  const cached = await fsp
+    .access(jsPath)
+    .then(() => fsp.access(wasmPath))
+    .then(() => true, () => false);
+  if (cached) {
+    return { js: jsPath, wasm: wasmPath };
   }
 
-  // No cache hit — fetch the latest version metadata from the registry.
+  // No cache hit — fetch the tarball for the pinned version from the registry.
   // Encode scoped package name: "@arborium/json" → "%40arborium%2Fjson"
   const encodedPkg = pkg.replace(/^@/, "%40").replace("/", "%2F");
 
-  const metaRes = await fetch(`${registry}/${encodedPkg}/latest`);
+  const metaRes = await fetch(`${registry}/${encodedPkg}/${version}`);
   if (!metaRes.ok) {
     throw new Error(
-      `unplugin-arborium: failed to fetch metadata for ${pkg} from ${registry} (${metaRes.status} ${metaRes.statusText})`,
+      `unplugin-arborium: failed to fetch metadata for ${pkg}@${version} from ${registry} (${metaRes.status} ${metaRes.statusText})`,
     );
   }
 
@@ -118,11 +122,7 @@ async function fetchGrammarPackage(
     version: string;
     dist: { tarball: string };
   };
-  const { version, dist } = meta;
-
-  const versionDir = resolve(pkgCacheDir, version);
-  const jsPath = resolve(versionDir, "grammar.js");
-  const wasmPath = resolve(versionDir, "grammar_bg.wasm");
+  const { dist } = meta;
 
   const tarRes = await fetch(dist.tarball);
   if (!tarRes.ok) {
