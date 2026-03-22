@@ -62,7 +62,6 @@ describe("unplugin-arborium", () => {
         // Externalize everything except our virtual module
         external: (id) => {
           if (id === "arborium" || id.startsWith("\0")) return false;
-          if (id === "unplugin-arborium/runtime-core") return true;
           // Let the plugin resolve arborium imports
           return !id.includes("@arborium");
         },
@@ -81,7 +80,7 @@ describe("unplugin-arborium", () => {
         .join("\n");
 
       // Virtual module was resolved and the runtime init code is present
-      expect(code).toContain("__initRuntime");
+      expect(code).toContain("setConfig");
       expect(code).toContain("getAvailableLanguages");
     });
   });
@@ -168,9 +167,9 @@ describe("unplugin-arborium", () => {
         format: "esm",
         plugins: [unplugin.esbuild(pluginOptions)],
         logLevel: "silent",
-        // esbuild can't resolve the runtime-core from the virtual module,
+        // esbuild can't resolve @arborium/arborium from the virtual module,
         // so mark it external
-        external: ["unplugin-arborium/runtime-core"],
+        external: ["@arborium/arborium"],
       });
 
       expect(result.errors.length).toBe(0);
@@ -182,7 +181,7 @@ describe("unplugin-arborium", () => {
       const jsContent = jsFiles
         .map((f) => fs.readFileSync(f, "utf-8"))
         .join("\n");
-      expect(jsContent).toContain("__initRuntime");
+      expect(jsContent).toContain("setConfig");
 
       cleanOutDir();
     });

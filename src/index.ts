@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { createUnplugin } from "unplugin";
 import type { ArboriumPluginOptions } from "./types.js";
-import { fromNodeModules, resolveHost, resolveRuntimeCore, resolveArborium } from "./core/resolvers.js";
+import { fromNodeModules, resolveHost } from "./core/resolvers.js";
 import { generateRuntimeModule } from "./core/codegen.js";
 import { checkLicenses } from "./core/licenses.js";
 
@@ -12,8 +12,6 @@ const THEME_PREFIX = "arborium/themes/";
 
 export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
   const grammarResolver = options.resolve ?? fromNodeModules();
-  const runtimeCorePath = resolveRuntimeCore();
-  const arboriumPath = resolveArborium();
   let generatedCode: string | null = null;
 
   return {
@@ -32,7 +30,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
       await checkLicenses(languages, options.allowedLicenses);
       const host = resolveHost();
       const resolved = await grammarResolver({ languages });
-      generatedCode = generateRuntimeModule(host, resolved, runtimeCorePath, arboriumPath);
+      generatedCode = generateRuntimeModule(host, resolved);
     },
 
     resolveId(id: string) {

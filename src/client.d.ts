@@ -2,25 +2,28 @@ declare module "arborium" {
   export {
     highlight,
     loadGrammar,
-    getAvailableLanguages,
-    isLanguageAvailable,
-  } from "unplugin-arborium/runtime-core";
-  export {
     detectLanguage,
     extractLanguageFromClass,
     normalizeLanguage,
     availableLanguages,
     pluginVersion,
   } from "@arborium/arborium";
+  export function getAvailableLanguages(): string[];
+  export function isLanguageAvailable(language: string): boolean;
 }
 
 declare module "arborium/runtime" {
   export {
     highlight,
     loadGrammar,
-    getAvailableLanguages,
-    isLanguageAvailable,
-  } from "unplugin-arborium/runtime-core";
+    detectLanguage,
+    extractLanguageFromClass,
+    normalizeLanguage,
+    availableLanguages,
+    pluginVersion,
+  } from "@arborium/arborium";
+  export function getAvailableLanguages(): string[];
+  export function isLanguageAvailable(language: string): boolean;
 }
 
 declare module "arborium/themes/*.css" {}

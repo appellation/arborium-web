@@ -33,13 +33,9 @@
       "import": "./dist/next.js",
       "types": "./dist/next.d.ts"
     },
-    "./runtime-core": {
-      "import": "./dist/runtime/index.js",
-      "types": "./dist/runtime/index.d.ts"
-    },
     "./types": {
-      "import": "./dist/runtime/types.js",
-      "types": "./dist/runtime/types.d.ts"
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
     },
     "./resolvers": {
       "import": "./dist/core/resolvers.js",
