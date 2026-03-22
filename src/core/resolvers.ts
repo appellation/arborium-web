@@ -2,12 +2,13 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { promises as fsp } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { gunzip } from "node:zlib";
-import { promisify } from "node:util";
+import { createGunzip } from "node:zlib";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
+import { extract } from "tar-stream";
 import { pluginVersion, availableLanguages } from "@arborium/arborium";
 import type { GrammarResolver, ResolvedWasmModule } from "../types.js";
 
-const gunzipAsync = promisify(gunzip);
 
 /**
  * Resolve the arborium host module from our own dependency.
@@ -150,9 +151,7 @@ async function fetchGrammarPackage(
     );
   }
 
-  const compressed = Buffer.from(await tarRes.arrayBuffer());
-  const decompressed = await gunzipAsync(compressed);
-  const files = extractTarEntries(decompressed, new Set(["grammar.js", "grammar_bg.wasm"]));
+  const files = await extractTarEntries(tarRes.body!, ["grammar.js", "grammar_bg.wasm"]);
 
   const jsContent = files.get("grammar.js");
   const wasmContent = files.get("grammar_bg.wasm");
@@ -169,41 +168,28 @@ async function fetchGrammarPackage(
   return { js: jsPath, wasm: wasmPath };
 }
 
-/**
- * Extract named files from an uncompressed tar buffer.
- * Matches by basename, returning file contents keyed by name.
- */
-function extractTarEntries(
-  buffer: Buffer,
-  names: Set<string>,
-): Map<string, Buffer> {
+async function extractTarEntries(
+  source: ReadableStream<Uint8Array>,
+  names: string[],
+): Promise<Map<string, Buffer>> {
+  const wanted = new Set(names);
   const results = new Map<string, Buffer>();
-  let offset = 0;
+  const ex = extract();
 
-  while (offset + 512 <= buffer.length) {
-    const header = buffer.subarray(offset, offset + 512);
-    if (header.every((b) => b === 0)) break;
-
-    const name = header.subarray(0, 100).toString("utf8").replace(/\0.*/, "");
-    const sizeStr = header
-      .subarray(124, 136)
-      .toString("utf8")
-      .replace(/\0.*/, "")
-      .trim();
-    const size = parseInt(sizeStr, 8) || 0;
-
-    offset += 512;
-
-    if (size > 0) {
-      const basename = name.split("/").pop()!;
-      if (names.has(basename)) {
-        results.set(basename, Buffer.from(buffer.subarray(offset, offset + size)));
-        if (results.size === names.size) break;
-      }
+  ex.on("entry", (header, stream, callback) => {
+    const basename = header.name.split("/").pop()!;
+    if (wanted.has(basename) && !results.has(basename)) {
+      const chunks: Buffer[] = [];
+      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      stream.on("end", () => { results.set(basename, Buffer.concat(chunks)); callback(); });
+      stream.on("error", callback);
+    } else {
+      stream.resume();
+      stream.on("end", callback);
+      stream.on("error", callback);
     }
+  });
 
-    offset += Math.ceil(size / 512) * 512;
-  }
-
+  await pipeline(Readable.fromWeb(source as any), createGunzip(), ex);
   return results;
 }

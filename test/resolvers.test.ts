@@ -70,6 +70,8 @@ function buildTarGz(files: Record<string, Buffer | string>): Buffer {
     header.write(data.length.toString(8).padStart(11, "0") + "\0", 124, "utf8");
     header.write("00000000000\0", 136, "utf8");
     header[156] = 0x30; // regular file
+    header.write("ustar\0", 257, "utf8"); // ustar magic
+    header.write("00", 263, "utf8");      // ustar version
 
     // Checksum: treat bytes 148-155 as spaces during summation
     header.fill(0x20, 148, 156);
