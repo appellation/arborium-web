@@ -38,6 +38,11 @@ export interface ArboriumPluginOptions {
   /** How to resolve grammar WASM assets. Default: fromNodeModules() */
   resolve?: GrammarResolver;
   /**
+   * Explicit list of languages to bundle. Overrides the resolver's
+   * `discoverLanguages` when provided.
+   */
+  languages?: string[];
+  /**
    * SPDX license identifiers that grammar packages are permitted to use.
    * The license is read from the underlying tree-sitter grammar's arborium.yaml
    * in the bearcove/arborium repository. If a language's license is not in this

@@ -29,6 +29,14 @@
       "import": "./dist/rspack.js",
       "types": "./dist/rspack.d.ts"
     },
+    "./rolldown": {
+      "import": "./dist/rolldown.js",
+      "types": "./dist/rolldown.d.ts"
+    },
+    "./farm": {
+      "import": "./dist/farm.js",
+      "types": "./dist/farm.d.ts"
+    },
     "./next": {
       "import": "./dist/next.js",
       "types": "./dist/next.d.ts"

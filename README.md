@@ -1,14 +1,14 @@
 # unplugin-arborium
 
-A build-time plugin for integrating [Arborium](https://arborium.dev) syntax highlighting into web applications. Resolves grammar packages and WebAssembly assets at build time, generates a virtual runtime module, and emits WASM files as hashed static assets your bundler can cache and serve efficiently.
+A build-time plugin for integrating [Arborium](https://arborium.bearcove.eu/) syntax highlighting into web applications. Resolves grammar packages and WebAssembly assets at build time, generates a virtual runtime module, and emits WASM files as hashed static assets your bundler can cache and serve efficiently.
 
-Supports Vite, Webpack, Rollup, Rspack, esbuild, and Next.js via [unplugin](https://github.com/unjs/unplugin).
+Supports Vite, Rollup, webpack, esbuild, Rspack, Rolldown, Farm, Bun, and Next.js via [unplugin](https://github.com/unjs/unplugin).
 
 ## Installation
 
-```sh
-npm install -D unplugin-arborium
-```
+1. Visit the [latest release](https://github.com/appellation/arborium-web/releases/latest)
+2. Copy the URL to the tarball
+3. Run `npm i -D [url]`
 
 Grammar packages are optional — see [Grammar Resolvers](#grammar-resolvers) for details. If you use the default resolver, install `@arborium/<language>` packages for each language you want to bundle:
 
@@ -18,7 +18,8 @@ npm install -D @arborium/json @arborium/rust
 
 ## Usage
 
-### Vite
+<details>
+<summary>Vite</summary>
 
 ```ts
 // vite.config.ts
@@ -31,20 +32,10 @@ export default {
 };
 ```
 
-### Webpack
+</details>
 
-```js
-// webpack.config.js
-const arborium = require("unplugin-arborium/webpack");
-
-module.exports = {
-  plugins: [
-    arborium(),
-  ],
-};
-```
-
-### Rollup
+<details>
+<summary>Rollup</summary>
 
 ```js
 // rollup.config.js
@@ -57,7 +48,26 @@ export default {
 };
 ```
 
-### esbuild
+</details>
+
+<details>
+<summary>webpack</summary>
+
+```js
+// webpack.config.js
+const arborium = require("unplugin-arborium/webpack");
+
+module.exports = {
+  plugins: [
+    arborium(),
+  ],
+};
+```
+
+</details>
+
+<details>
+<summary>esbuild</summary>
 
 ```js
 import arborium from "unplugin-arborium/esbuild";
@@ -70,21 +80,74 @@ build({
 });
 ```
 
-### Next.js
+</details>
+
+<details>
+<summary>Rspack</summary>
 
 ```js
-// next.config.js
-const arborium = require("unplugin-arborium/next");
+// rspack.config.js
+const arborium = require("unplugin-arborium/rspack");
 
 module.exports = {
-  webpack(config) {
-    config.plugins.push(
-      arborium()
-    );
-    return config;
-  },
+  plugins: [
+    arborium(),
+  ],
 };
 ```
+
+</details>
+
+<details>
+<summary>Rolldown</summary>
+
+```js
+// rolldown.config.js
+import arborium from "unplugin-arborium/rolldown";
+
+export default {
+  plugins: [
+    arborium(),
+  ],
+};
+```
+
+</details>
+
+<details>
+<summary>Farm</summary>
+
+```ts
+// farm.config.ts
+import arborium from "unplugin-arborium/farm";
+
+export default {
+  plugins: [
+    arborium(),
+  ],
+};
+```
+
+</details>
+
+<details>
+<summary>Bun</summary>
+
+Bun's build API accepts esbuild-compatible plugins:
+
+```ts
+import arborium from "unplugin-arborium/esbuild";
+
+await Bun.build({
+  entrypoints: ["./src/index.ts"],
+  outdir: "./dist",
+  plugins: [
+    arborium(),
+  ],
+});
+```
+
+</details>
 
 ## Runtime API
 
@@ -118,8 +181,23 @@ Add the client type declarations to your `tsconfig.json` so TypeScript recognize
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `resolve` | `GrammarResolver` | `fromNodeModules()` | Resolver for grammar packages. `discoverLanguages` determines which languages to bundle. |
-| `allowedLicenses` | `string[]` | `undefined` | SPDX license identifiers permitted for bundled grammars. The license is resolved from the underlying tree-sitter grammar's `arborium.yaml` in the [bearcove/arborium](https://github.com/bearcove/arborium) repository. If any language's license is not in this set, the build fails. `undefined` (the default) allows all licenses; an empty array disallows all licenses. |
+| `resolve` | `GrammarResolver` | `fromNodeModules()` | Resolver for grammar packages. `discoverLanguages` determines which languages to bundle when `languages` is not set. |
+| `languages` | `string[]` | `undefined` | Explicit list of languages to bundle. Overrides the resolver's `discoverLanguages` when provided. |
+| `allowedLicenses` | `string[]` | `undefined` | SPDX license identifiers permitted for bundled grammars. If any grammar's license is not in this set, the build fails. `undefined` (the default) allows all licenses. |
+
+### Licenses
+
+`allowedLicenses` is designed to be noisy so that you don't accidentally drop language support if an included grammar updates its license to something unexpected. Currently, the only GPL-licensed grammar is `nginx`, which you can exclude via the `languages` option:
+
+```js
+import arborium from "unplugin-arborium/webpack"; // or your bundler of choice
+import { availableLanguages, fromNpm } from "unplugin-arborium";
+
+arborium({
+  languages: availableLanguages.filter(lang => lang !== "nginx"),
+  allowedLicenses: ["MIT", "Apache-2.0", "ISC", "BSD-2-Clause", "BSD-3-Clause"],
+})
+```
 
 ## Grammar Resolvers
 

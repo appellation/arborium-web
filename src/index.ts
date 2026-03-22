@@ -19,7 +19,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
     enforce: "pre" as const,
 
     async buildStart() {
-      const languages = await grammarResolver.discoverLanguages();
+      const languages = options.languages ?? await grammarResolver.discoverLanguages();
       if (languages.length === 0) {
         console.warn(
           "unplugin-arborium: no languages found. Install @arborium/<lang> packages or use fromNpm().",
@@ -114,6 +114,7 @@ export const unplugin = /* #__PURE__ */ createUnplugin(unpluginFactory);
 export default unplugin;
 
 export { fromNodeModules, fromNpm } from "./core/resolvers.js";
+export { availableLanguages } from "@arborium/arborium";
 export type {
   ArboriumPluginOptions,
   GrammarResolver,
