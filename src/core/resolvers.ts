@@ -26,6 +26,17 @@ export function resolveHost(): ResolvedWasmModule {
   };
 }
 
+/**
+ * Resolve the absolute path to the @arborium/arborium main module from our
+ * own dependency tree. Used by the virtual module to import setConfig and the
+ * public API via an absolute path rather than a bare specifier, so the import
+ * works regardless of whether @arborium/arborium is a direct dependency of
+ * the consuming project.
+ */
+export function resolveArborium(): string {
+  return fileURLToPath(import.meta.resolve("@arborium/arborium"));
+}
+
 
 /**
  * Resolve grammar WASM assets from the consuming project's node_modules.

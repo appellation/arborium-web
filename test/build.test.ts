@@ -79,9 +79,9 @@ describe("unplugin-arborium", () => {
         .map((chunk) => chunk.code)
         .join("\n");
 
-      // Virtual module was resolved and the runtime init code is present
-      expect(code).toContain("setConfig");
+      // Virtual module was resolved and the public API is present
       expect(code).toContain("getAvailableLanguages");
+      expect(code).toContain("isLanguageAvailable");
     });
   });
 
@@ -181,7 +181,7 @@ describe("unplugin-arborium", () => {
       const jsContent = jsFiles
         .map((f) => fs.readFileSync(f, "utf-8"))
         .join("\n");
-      expect(jsContent).toContain("setConfig");
+      expect(jsContent).toContain("getAvailableLanguages");
 
       cleanOutDir();
     });

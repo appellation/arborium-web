@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { createUnplugin } from "unplugin";
 import type { ArboriumPluginOptions } from "./types.js";
-import { fromNodeModules, resolveHost } from "./core/resolvers.js";
+import { fromNodeModules, resolveHost, resolveArborium } from "./core/resolvers.js";
 import { generateRuntimeModule } from "./core/codegen.js";
 import { checkLicenses } from "./core/licenses.js";
 
@@ -30,7 +30,7 @@ export const unpluginFactory = (options: ArboriumPluginOptions = {}) => {
       await checkLicenses(languages, options.allowedLicenses);
       const host = resolveHost();
       const resolved = await grammarResolver({ languages });
-      generatedCode = generateRuntimeModule(host, resolved);
+      generatedCode = generateRuntimeModule(host, resolved, resolveArborium());
     },
 
     resolveId(id: string) {
