@@ -213,6 +213,28 @@ npm install @arborium/json @arborium/rust
 
 The plugin scans `node_modules/@arborium/` at build time and bundles every installed grammar package automatically.
 
+#### Transitive grammar packages
+
+If grammars are installed by a dependency rather than your project directly (e.g. a plugin that ships its own grammar set as a barrel package), use the `transitivePackages` option. Each entry is either a package name (one hop from the root) or an ordered array of package names forming an explicit chain to follow:
+
+```ts
+import { fromNodeModules } from "unplugin-arborium/resolvers";
+
+arborium({
+  resolve: fromNodeModules({
+    transitivePackages: [
+      // grammars installed directly by a dependency
+      "@my-org/plugin",
+
+      // grammars installed by a package that is itself a dep of a plugin
+      ["@my-org/plugin", "@my-org/grammars"],
+    ],
+  }),
+})
+```
+
+Each chain is resolved in sequence: `@my-org/grammars` is looked up from `@my-org/plugin`'s node_modules context, not the root. This works correctly with pnpm's strict node_modules layout.
+
 ### `fromNpm()`
 
 Fetches grammar packages directly from the NPM registry at build time, with no installation step required. Packages are downloaded once and cached in `node_modules/.cache/unplugin-arborium/`, so subsequent builds are fast even without the packages in `node_modules`.

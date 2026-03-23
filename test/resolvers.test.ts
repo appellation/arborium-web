@@ -51,6 +51,115 @@ describe("fromNodeModules", () => {
 });
 
 // ============================================================================
+// fromNodeModules — transitivePackages
+// ============================================================================
+
+describe("fromNodeModules — transitivePackages", () => {
+  // Temporary fake packages are created under the real node_modules so that
+  // Node's resolution algorithm can find them (and walk up to @arborium/json).
+  const nodeModulesDir = path.resolve(__dirname, "../node_modules");
+  let pkg1Name: string;
+  let pkg2Name: string;
+  let pkg1Dir: string;
+  let pkg2Dir: string;
+
+  beforeEach(() => {
+    const suffix = Math.random().toString(36).slice(2);
+    pkg1Name = `arborium-test-hop1-${suffix}`;
+    pkg2Name = `arborium-test-hop2-${suffix}`;
+    pkg1Dir = path.join(nodeModulesDir, pkg1Name);
+    pkg2Dir = path.join(nodeModulesDir, pkg2Name);
+  });
+
+  afterEach(() => {
+    fs.rmSync(pkg1Dir, { recursive: true, force: true });
+    fs.rmSync(pkg2Dir, { recursive: true, force: true });
+  });
+
+  it("resolves a grammar from a single transitive package (string entry)", async () => {
+    fs.mkdirSync(pkg1Dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg1Dir, "package.json"),
+      JSON.stringify({ name: pkg1Name, dependencies: { "@arborium/json": "*" } }),
+    );
+
+    const resolver = fromNodeModules({ transitivePackages: [pkg1Name] });
+    const result = await resolver({ languages: ["json"] });
+
+    const json = result.grammars.get("json")!;
+    expect(json).toBeDefined();
+    expect(fs.existsSync(json.js)).toBe(true);
+    expect(fs.existsSync(json.wasm)).toBe(true);
+  });
+
+  it("resolves a grammar by following a chain of packages (array entry)", async () => {
+    // pkg1 depends on pkg2; pkg2 depends on @arborium/json.
+    // Both sit at root node_modules so resolution walks up correctly.
+    fs.mkdirSync(pkg1Dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg1Dir, "package.json"),
+      JSON.stringify({ name: pkg1Name, dependencies: { [pkg2Name]: "*" } }),
+    );
+    fs.mkdirSync(pkg2Dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg2Dir, "package.json"),
+      JSON.stringify({ name: pkg2Name, dependencies: { "@arborium/json": "*" } }),
+    );
+
+    const resolver = fromNodeModules({ transitivePackages: [[pkg1Name, pkg2Name]] });
+    const result = await resolver({ languages: ["json"] });
+
+    const json = result.grammars.get("json")!;
+    expect(json).toBeDefined();
+    expect(fs.existsSync(json.js)).toBe(true);
+    expect(fs.existsSync(json.wasm)).toBe(true);
+  });
+
+  it("discoverLanguages finds grammars listed in a transitive package", async () => {
+    fs.mkdirSync(pkg1Dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg1Dir, "package.json"),
+      JSON.stringify({ name: pkg1Name, dependencies: { "@arborium/json": "*" } }),
+    );
+
+    const resolver = fromNodeModules({ transitivePackages: [pkg1Name] });
+    const langs = await resolver.discoverLanguages!();
+    expect(langs).toContain("json");
+  });
+
+  it("discoverLanguages finds grammars listed at the end of a chain", async () => {
+    fs.mkdirSync(pkg1Dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg1Dir, "package.json"),
+      JSON.stringify({ name: pkg1Name, dependencies: { [pkg2Name]: "*" } }),
+    );
+    fs.mkdirSync(pkg2Dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg2Dir, "package.json"),
+      JSON.stringify({ name: pkg2Name, dependencies: { "@arborium/json": "*" } }),
+    );
+
+    const resolver = fromNodeModules({ transitivePackages: [[pkg1Name, pkg2Name]] });
+    const langs = await resolver.discoverLanguages!();
+    expect(langs).toContain("json");
+  });
+
+  it("silently skips a chain when a package in it is not installed", async () => {
+    const resolver = fromNodeModules({
+      transitivePackages: [["not-installed-pkg", "also-not-installed"]],
+    });
+
+    // Resolution of a language available at root should still work
+    const result = await resolver({ languages: ["json"] });
+    expect(result.grammars.has("json")).toBe(true);
+
+    // discoverLanguages should not throw
+    const langs = await resolver.discoverLanguages!();
+    expect(Array.isArray(langs)).toBe(true);
+  });
+});
+
+// ============================================================================
 // fromNpm helpers
 // ============================================================================
 

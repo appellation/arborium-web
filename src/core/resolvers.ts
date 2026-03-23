@@ -30,37 +30,132 @@ export function resolveHost(): ResolvedWasmModule {
 /**
  * Resolve grammar WASM assets from the consuming project's node_modules.
  *
- * Expects `@arborium/<lang>` packages to be installed
- * in the consuming project.
+ * Expects `@arborium/<lang>` packages to be installed in the consuming project
+ * or, when `transitivePackages` is specified, within those packages' own
+ * node_modules (e.g. a plugin that ships its own grammars as dependencies).
  */
-export function fromNodeModules(): GrammarResolver {
-  const resolver: GrammarResolver = (ctx) => {
-    // Anchor resolution to the consumer's project directory
-    const require = createRequire(resolve(process.cwd(), "package.json"));
+export function fromNodeModules(options?: {
+  /**
+   * Packages to search for `@arborium/<lang>` grammars beyond the root
+   * project. Each entry is either a package name (one hop from the root) or
+   * an ordered chain of package names to follow in sequence — useful when
+   * grammars are installed several layers deep in a known dependency path.
+   *
+   * @example
+   * // grammars installed directly by a dependency
+   * transitivePackages: ["@my-org/plugin"]
+   *
+   * // grammars installed by a package that is itself a dependency of a plugin
+   * transitivePackages: [["@my-org/plugin", "@my-org/grammars"]]
+   */
+  transitivePackages?: Array<string | string[]>;
+}): GrammarResolver {
+  const rootRequire = createRequire(resolve(process.cwd(), "package.json"));
 
+  function tryResolveGrammar(req: ReturnType<typeof createRequire>, lang: string): ResolvedWasmModule | null {
+    try {
+      const grammarJsPath = req.resolve(`@arborium/${lang}/grammar.js`);
+      return { js: grammarJsPath, wasm: resolve(dirname(grammarJsPath), "grammar_bg.wasm") };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Follow a chain of package names, each resolved from the previous
+   * package's context. Returns the require context and package.json path
+   * of the final package, or null if any step fails to resolve.
+   */
+  function resolveChain(chain: string[]): { req: ReturnType<typeof createRequire>; pkgJsonPath: string } | null {
+    let req = rootRequire;
+    let pkgJsonPath: string;
+    for (const pkg of chain) {
+      try {
+        pkgJsonPath = req.resolve(`${pkg}/package.json`);
+        req = createRequire(pkgJsonPath!);
+      } catch {
+        return null;
+      }
+    }
+    return pkgJsonPath! ? { req, pkgJsonPath: pkgJsonPath! } : null;
+  }
+
+  function buildRequireContexts(): ReturnType<typeof createRequire>[] {
+    const contexts: ReturnType<typeof createRequire>[] = [rootRequire];
+    for (const entry of options?.transitivePackages ?? []) {
+      const chain = Array.isArray(entry) ? entry : [entry];
+      const resolved = resolveChain(chain);
+      if (resolved) contexts.push(resolved.req);
+    }
+    return contexts;
+  }
+
+  const resolver: GrammarResolver = (ctx) => {
+    const contexts = buildRequireContexts();
     const grammars = new Map<string, ResolvedWasmModule>();
+
     for (const lang of ctx.languages) {
-      const grammarJsPath = require.resolve(`@arborium/${lang}/grammar.js`);
-      const grammarDir = dirname(grammarJsPath);
-      grammars.set(lang, {
-        js: grammarJsPath,
-        wasm: resolve(grammarDir, "grammar_bg.wasm"),
-      });
+      for (const req of contexts) {
+        const resolved = tryResolveGrammar(req, lang);
+        if (resolved) {
+          grammars.set(lang, resolved);
+          break;
+        }
+      }
+      if (!grammars.has(lang)) {
+        throw new Error(
+          `unplugin-arborium: grammar package @arborium/${lang} could not be resolved`,
+        );
+      }
     }
 
     return { grammars };
   };
 
   resolver.discoverLanguages = async (): Promise<string[]> => {
-    const arboriumDir = resolve(process.cwd(), "node_modules/@arborium");
-    try {
-      const dirents = await fsp.readdir(arboriumDir, { withFileTypes: true });
-      return dirents
-        .filter((d) => (d.isDirectory() || d.isSymbolicLink()) && d.name !== "arborium")
-        .map((d) => d.name);
-    } catch {
-      return [];
+    const discovered = new Set<string>();
+
+    async function scanArboriumDir(dir: string): Promise<void> {
+      try {
+        const dirents = await fsp.readdir(dir, { withFileTypes: true });
+        for (const d of dirents) {
+          if ((d.isDirectory() || d.isSymbolicLink()) && d.name !== "arborium") {
+            discovered.add(d.name);
+          }
+        }
+      } catch {
+        // directory doesn't exist — skip
+      }
     }
+
+    await scanArboriumDir(resolve(process.cwd(), "node_modules/@arborium"));
+
+    for (const entry of options?.transitivePackages ?? []) {
+      const chain = Array.isArray(entry) ? entry : [entry];
+      const resolved = resolveChain(chain);
+      if (!resolved) continue;
+
+      try {
+        const pkgJson = JSON.parse(await fsp.readFile(resolved.pkgJsonPath, "utf8")) as {
+          dependencies?: Record<string, string>;
+        };
+        for (const dep of Object.keys(pkgJson.dependencies ?? {})) {
+          if (dep.startsWith("@arborium/") && dep !== "@arborium/arborium") {
+            const lang = dep.slice("@arborium/".length);
+            try {
+              resolved.req.resolve(`${dep}/grammar.js`);
+              discovered.add(lang);
+            } catch {
+              // dep listed but not resolvable — skip
+            }
+          }
+        }
+      } catch {
+        // package.json unreadable — skip silently
+      }
+    }
+
+    return [...discovered];
   };
 
   return resolver;
