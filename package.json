@@ -1,6 +1,6 @@
 {
   "name": "unplugin-arborium",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "description": "Build-time WASM asset resolution for arborium syntax highlighting",
   "license": "MIT OR Apache-2.0",
