@@ -37,10 +37,6 @@
       "import": "./dist/farm.js",
       "types": "./dist/farm.d.ts"
     },
-    "./next": {
-      "import": "./dist/next.js",
-      "types": "./dist/next.d.ts"
-    },
     "./types": {
       "import": "./dist/types.js",
       "types": "./dist/types.d.ts"
