@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Build-time WASM asset resolution for arborium syntax highlighting",
   "license": "MIT OR Apache-2.0",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
